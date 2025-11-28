@@ -3,14 +3,16 @@ package com.example.test_lab_week_12
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import com.example.test_lab_week_12.model.Movie
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,24 +42,24 @@ class MainActivity : AppCompatActivity() {
             }
         )[MovieViewModel::class.java]
 
-        movieViewModel.popularMovies.observe(this) { movieList: List<Movie> ->
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-            val currentYear = Calendar.getInstance().get(Calendar.YEAR).toString()
-
-            val filtered = movieList
-                .filter { movie: Movie ->
-                    movie.releaseDate?.startsWith(currentYear) == true
-                }
-                .sortedByDescending { movie: Movie ->
-                    movie.popularity
+                launch {
+                    movieViewModel.popularMovies.collectLatest { movies ->
+                        movieAdapter.addMovies(movies)
+                    }
                 }
 
-            movieAdapter.addMovies(filtered)
-        }
-
-        movieViewModel.error.observe(this) { errorMsg: String ->
-            if (!errorMsg.isNullOrEmpty()) {
-                Snackbar.make(recyclerView, errorMsg, Snackbar.LENGTH_LONG).show()
+                launch {
+                    movieViewModel.error.collectLatest { error ->
+                        if (error.isNotEmpty()) {
+                            Snackbar.make(
+                                recyclerView, error, Snackbar.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
             }
         }
     }
